@@ -10,6 +10,11 @@ const moods = [
 
 const places = ['Moonlit forest', 'Rainy cabin', 'Quiet ocean', 'Cloud garden']
 const lengths = ['2 min', '5 min', '10 min']
+const soundPresets = [
+  { id: 'rain', label: 'Rain hush', note: 'soft texture', glyph: '∿', frequency: 146, filter: 1200, noise: 0.11 },
+  { id: 'night', label: 'Night air', note: 'low and open', glyph: '◌', frequency: 174, filter: 700, noise: 0.07 },
+  { id: 'room', label: 'Warm room', note: 'deep and steady', glyph: '◒', frequency: 110, filter: 420, noise: 0.05 },
+]
 
 const demoStory = (name, mood, place, length) => {
   const listener = name?.trim() || 'you'
@@ -58,6 +63,7 @@ function App() {
   const [storySource, setStorySource] = useState('fallback')
   const [loading, setLoading] = useState(false)
   const [soundOn, setSoundOn] = useState(false)
+  const [soundPreset, setSoundPreset] = useState('rain')
   const [note, setNote] = useState('Ready when you are.')
   const [soundMessage, setSoundMessage] = useState('A low, local soundscape for the last few minutes of your day.')
   const audioRef = useRef(null)
@@ -104,6 +110,7 @@ function App() {
     }
 
     const context = new AudioContextClass()
+    const preset = soundPresets.find((item) => item.id === soundPreset) || soundPresets[0]
     await context.resume()
     const master = context.createGain()
     const now = context.currentTime
@@ -114,7 +121,7 @@ function App() {
     const tone = context.createOscillator()
     const toneGain = context.createGain()
     tone.type = 'sine'
-    tone.frequency.value = 174
+    tone.frequency.value = preset.frequency
     toneGain.gain.value = 0.34
     tone.connect(toneGain).connect(master)
 
@@ -127,15 +134,19 @@ function App() {
 
     const noiseBuffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate)
     const noiseData = noiseBuffer.getChannelData(0)
-    for (let index = 0; index < noiseData.length; index += 1) noiseData[index] = (Math.random() * 2 - 1) * 0.5
+    let noiseSeed = 0x12345678
+    for (let index = 0; index < noiseData.length; index += 1) {
+      noiseSeed = (1664525 * noiseSeed + 1013904223) >>> 0
+      noiseData[index] = ((noiseSeed / 4294967295) * 2 - 1) * 0.5
+    }
     const noise = context.createBufferSource()
     const filter = context.createBiquadFilter()
     const noiseGain = context.createGain()
     noise.buffer = noiseBuffer
     noise.loop = true
     filter.type = 'lowpass'
-    filter.frequency.value = 700
-    noiseGain.gain.value = 0.07
+    filter.frequency.value = preset.filter
+    noiseGain.gain.value = preset.noise
     noise.connect(filter).connect(noiseGain).connect(master)
 
     tone.start()
@@ -143,7 +154,14 @@ function App() {
     noise.start()
     audioRef.current = { context, nodes: [tone, drift, noise] }
     setSoundOn(true)
-    setSoundMessage('A soft, low-volume soundscape is playing only in this tab.')
+    setSoundMessage(`${preset.label} is playing softly in this tab. Nothing was downloaded or sent anywhere.`)
+  }
+
+  const handleSoundPresetChange = (nextPreset) => {
+    if (soundOn) stopSoundscape()
+    setSoundPreset(nextPreset)
+    const preset = soundPresets.find((item) => item.id === nextPreset)
+    setSoundMessage(`${preset?.label || 'Soundscape'} is ready when you are.`)
   }
 
   const handleModeChange = (nextMode) => {
@@ -273,6 +291,20 @@ function App() {
               </label>
             </div>
 
+            {mode === 'soundscape' && (
+              <fieldset className="field-block sound-field">
+                <legend>Choose a room tone</legend>
+                <div className="sound-presets">
+                  {soundPresets.map((preset) => (
+                    <button className={soundPreset === preset.id ? 'sound-preset selected' : 'sound-preset'} type="button" key={preset.id} onClick={() => handleSoundPresetChange(preset.id)} aria-pressed={soundPreset === preset.id}>
+                      <span className="sound-preset-glyph">{preset.glyph}</span>
+                      <span><strong>{preset.label}</strong><small>{preset.note}</small></span>
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
+
             {mode === 'story' && <label className="field-block name-field"><span className="field-label">A name for the story <small>optional</small></span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Anya" /></label>}
 
             {mode === 'story' && (
@@ -304,20 +336,20 @@ function App() {
 
       {mode === 'soundscape' && <section className={soundOn ? 'sound-output playing' : 'sound-output'} aria-live="polite">
         <div className="sound-visual" aria-hidden="true"><span /><span /><span /><span /><span /></div>
-        <div className="sound-copy"><p className="eyebrow">Room tone</p><h2>{soundOn ? 'The room is getting quieter.' : 'A quieter room, on demand.'}</h2><p>{soundMessage}</p></div>
+        <div className="sound-copy"><p className="eyebrow">{soundPresets.find((preset) => preset.id === soundPreset)?.label || 'Room tone'}</p><h2>{soundOn ? 'The room is getting quieter.' : 'A quieter room, on demand.'}</h2><p>{soundMessage}</p></div>
         <div className="sound-meta"><span><Icon name="clock" size={15} /> {length}</span><span><Icon name="leaf" size={15} /> {place}</span></div>
       </section>}
 
       <section className="principles" id="how-it-works" aria-label="Why SlowSleep">
         <div className="principles-intro"><p className="eyebrow">The slower promise</p><h2>Less input.<br /><em>More exhale.</em></h2></div>
         <div className="principle-list">
-          <article><span>01</span><div><h3>Private by default</h3><p>Your prompts stay on this device. No account, tracking, or per-story fee.</p></div></article>
+          <article><span>01</span><div><h3>Clear about privacy</h3><p>Soundscapes stay in the browser. Stories use the server-side provider only when you choose to write one.</p></div></article>
           <article><span>02</span><div><h3>Small enough to use</h3><p>Choose a feeling, choose a place, and let the rest of the evening be simple.</p></div></article>
           <article><span>03</span><div><h3>Nothing to finish</h3><p>There is no streak to protect and no next step to optimize. Just a softer ending.</p></div></article>
         </div>
       </section>
 
-      <footer className="app-footer"><span className="footer-brand"><span className="wordmark-mark"><Icon name="moon" size={14} /></span>slowsleep</span><span>Open-source AI · Offline first · Made for slower evenings</span><a href="#top">Back to top <Icon name="arrow" size={14} /></a></footer>
+      <footer className="app-footer"><span className="footer-brand"><span className="wordmark-mark"><Icon name="moon" size={14} /></span>slowsleep</span><span>Local sound · OpenRouter stories · Made for slower evenings</span><a href="#top">Back to top <Icon name="arrow" size={14} /></a></footer>
     </main>
   )
 }

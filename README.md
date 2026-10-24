@@ -11,6 +11,15 @@ npm run dev
 
 Open `http://localhost:5173`. Without an OpenRouter key, the app shows a built-in demo story so the interface can still be explored. Soundscapes are generated locally in the browser with the Web Audio API.
 
+## How to get the sound
+
+1. Open the **Soundscape** tab in Tonight's ritual.
+2. Choose a room tone: **Rain hush**, **Night air**, or **Warm room**.
+3. Press **Play soundscape**.
+4. Use **Pause soundscape** to stop it.
+
+The sound is synthesized in the browser, so there is no audio file to download and no sound data is sent to a server. Your browser may ask for a user gesture before audio starts; pressing the button satisfies that requirement.
+
 ## Enable OpenRouter stories
 
 1. Copy `.env.example` to `.env`.

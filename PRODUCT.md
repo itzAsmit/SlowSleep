@@ -19,6 +19,7 @@ The primary surface is **Operate**: the visitor is completing a calming ritual. 
 ## Constraints
 
 - Keep soundscapes and the built-in story usable without a network connection.
+- Make the soundscape action obvious: the user should be able to choose a tone and start/stop it without hunting.
 - OpenRouter is optional and must be called through the server, never directly from the browser.
 - Soundscapes must be generated in the browser and stop cleanly.
 - Never place an API key in browser state, localStorage, `VITE_*` variables, or the production bundle.

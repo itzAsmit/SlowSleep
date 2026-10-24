@@ -35,6 +35,7 @@
 - Selected states use mint fill and a visible border, not color alone.
 - Keep status copy short and reassuring.
 - Treat provider state as a small trust detail: server-side key, no browser secret, graceful local fallback.
+- Treat sound as a first-class ritual: presets are selectable before playback, and playback state is visible without relying on animation alone.
 - Motion personality: an exhale — slightly slower than typical UI, never bouncy. Press feedback stays fast (160ms, scale 0.97–0.98); state changes use 220–340ms with soft custom easings (`cubic-bezier(0.23,1,0.32,1)` out, `cubic-bezier(0.32,0.72,0,1)` for the mode-switch thumb).
 - Entrances are staggered fade-and-rise (40–60ms steps, under 300ms total delay); the story surface enters with a gentle blur-to-clear.
 - Hover transforms only apply under `@media (hover: hover) and (pointer: fine)`; every pressable control has an `:active` scale.
