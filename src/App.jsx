@@ -64,6 +64,7 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [soundOn, setSoundOn] = useState(false)
   const [soundPreset, setSoundPreset] = useState('rain')
+  const [soundVolume, setSoundVolume] = useState(0.48)
   const [note, setNote] = useState('Ready when you are.')
   const [soundMessage, setSoundMessage] = useState('A low, local soundscape for the last few minutes of your day.')
   const audioRef = useRef(null)
@@ -111,50 +112,66 @@ function App() {
 
     const context = new AudioContextClass()
     const preset = soundPresets.find((item) => item.id === soundPreset) || soundPresets[0]
-    await context.resume()
-    const master = context.createGain()
-    const now = context.currentTime
-    master.gain.setValueAtTime(0, now)
-    master.gain.linearRampToValueAtTime(0.08, now + 1.5)
-    master.connect(context.destination)
 
-    const tone = context.createOscillator()
-    const toneGain = context.createGain()
-    tone.type = 'sine'
-    tone.frequency.value = preset.frequency
-    toneGain.gain.value = 0.34
-    tone.connect(toneGain).connect(master)
+    try {
+      await context.resume()
+      const master = context.createGain()
+      const now = context.currentTime
+      master.gain.setValueAtTime(0, now)
+      master.gain.linearRampToValueAtTime(0.2 * soundVolume, now + 1.5)
+      master.connect(context.destination)
 
-    const drift = context.createOscillator()
-    const driftGain = context.createGain()
-    drift.type = 'sine'
-    drift.frequency.value = 0.08
-    driftGain.gain.value = 4
-    drift.connect(driftGain).connect(tone.frequency)
+      const tone = context.createOscillator()
+      const toneGain = context.createGain()
+      tone.type = 'sine'
+      tone.frequency.value = preset.frequency
+      toneGain.gain.value = 0.42
+      tone.connect(toneGain).connect(master)
 
-    const noiseBuffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate)
-    const noiseData = noiseBuffer.getChannelData(0)
-    let noiseSeed = 0x12345678
-    for (let index = 0; index < noiseData.length; index += 1) {
-      noiseSeed = (1664525 * noiseSeed + 1013904223) >>> 0
-      noiseData[index] = ((noiseSeed / 4294967295) * 2 - 1) * 0.5
+      const drift = context.createOscillator()
+      const driftGain = context.createGain()
+      drift.type = 'sine'
+      drift.frequency.value = 0.08
+      driftGain.gain.value = 4
+      drift.connect(driftGain).connect(tone.frequency)
+
+      const noiseBuffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate)
+      const noiseData = noiseBuffer.getChannelData(0)
+      let noiseSeed = 0x12345678
+      for (let index = 0; index < noiseData.length; index += 1) {
+        noiseSeed = (1664525 * noiseSeed + 1013904223) >>> 0
+        noiseData[index] = ((noiseSeed / 4294967295) * 2 - 1) * 0.5
+      }
+      const noise = context.createBufferSource()
+      const filter = context.createBiquadFilter()
+      const noiseGain = context.createGain()
+      noise.buffer = noiseBuffer
+      noise.loop = true
+      filter.type = 'lowpass'
+      filter.frequency.value = preset.filter
+      noiseGain.gain.value = preset.noise
+      noise.connect(filter).connect(noiseGain).connect(master)
+
+      tone.start()
+      drift.start()
+      noise.start()
+      audioRef.current = { context, master, nodes: [tone, drift, noise] }
+      setSoundOn(true)
+      setSoundMessage(`${preset.label} is playing softly in this tab. If you still hear nothing, check your device volume.`)
+    } catch {
+      context.close().catch(() => {})
+      setSoundMessage('Audio could not start in this browser. Try pressing Play once more or check that this tab is not muted.')
     }
-    const noise = context.createBufferSource()
-    const filter = context.createBiquadFilter()
-    const noiseGain = context.createGain()
-    noise.buffer = noiseBuffer
-    noise.loop = true
-    filter.type = 'lowpass'
-    filter.frequency.value = preset.filter
-    noiseGain.gain.value = preset.noise
-    noise.connect(filter).connect(noiseGain).connect(master)
+  }
 
-    tone.start()
-    drift.start()
-    noise.start()
-    audioRef.current = { context, nodes: [tone, drift, noise] }
-    setSoundOn(true)
-    setSoundMessage(`${preset.label} is playing softly in this tab. Nothing was downloaded or sent anywhere.`)
+  const handleSoundVolumeChange = (event) => {
+    const nextVolume = Number(event.target.value)
+    setSoundVolume(nextVolume)
+    const master = audioRef.current?.master
+    if (master) {
+      master.gain.cancelScheduledValues(audioRef.current.context.currentTime)
+      master.gain.setTargetAtTime(0.2 * nextVolume, audioRef.current.context.currentTime, 0.08)
+    }
   }
 
   const handleSoundPresetChange = (nextPreset) => {
@@ -302,6 +319,7 @@ function App() {
                     </button>
                   ))}
                 </div>
+                <label className="volume-control"><span><span className="field-label">Volume</span><small>{Math.round(soundVolume * 100)}%</small></span><input type="range" min="0" max="1" step="0.01" value={soundVolume} onChange={handleSoundVolumeChange} aria-label="Soundscape volume" /></label>
               </fieldset>
             )}
 
